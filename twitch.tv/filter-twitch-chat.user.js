@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Filter Twitch chat
 // @namespace    https://github.com/afontenot/userjs/twitch-1
-// @version      0.2.0
+// @version      0.2.1
 // @description  Removes most annoying messages on Twitch
 // @author       Adam Fontenot (https://github.com/afontenot)
 // @license      GPL-3.0-or-later
@@ -15,9 +15,10 @@
 
     var banned_words = ["monkas", "pepes", "pepehands", "omegalul", "monkagiga",
         "peepos", "pogu", "lsrs", "feelsbadman", "poggers", "pogchamp",
-        "sourpls", "feelsgoodman", "pepega"
+        "sourpls", "feelsgoodman", "pepega", "hyperclap", "peped", "pepepls",
+        "gachibass", "libido", "lulwat"
     ];
-  
+
     var filterMessages = function(mutationsList, observer) {
         for (const mutation of mutationsList) {
             if (mutation.type !== 'childList' || !mutation.addedNodes.length) {
@@ -44,10 +45,25 @@
             }
         }
     };
-  
-    var chatElement = document.getElementsByClassName("chat-list__lines")[0].querySelector("div[role='log']");
-    var moConfig = { attributes: false, childList: true, subtree: false };
-    var observer = new MutationObserver(filterMessages);
-    observer.observe(chatElement, moConfig);
+
+    var observer = null;
+    var createObserver = function() {
+        if (observer != null) {
+            observer.disconnect();
+        }
+        var chatElement = document.getElementsByClassName("chat-list__lines")[0].querySelector("div[role='log']");
+        console.log("twitch filter: creating new mutation observer...")
+        var moConfig = { attributes: false, childList: true, subtree: false };
+        observer = new MutationObserver(filterMessages);
+        observer.observe(chatElement, moConfig);
+    };
+
+    createObserver();
+    // recreate the observer if Twitch AJAX loads another page - kind of a hack
+    var titleElement = document.getElementsByTagName("title")[0];
+    var moTitleConfig = { attributes: true, childList: true, subtree: true };
+    var titleObserver = new MutationObserver(createObserver);
+    titleObserver.observe(titleElement, moTitleConfig);
 })();
+
 
