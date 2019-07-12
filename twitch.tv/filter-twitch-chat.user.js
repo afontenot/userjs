@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Filter Twitch chat
 // @namespace    https://github.com/afontenot/userjs/twitch-1
-// @version      0.2.1
+// @version      0.2.2
 // @description  Removes most annoying messages on Twitch
 // @author       Adam Fontenot (https://github.com/afontenot)
 // @license      GPL-3.0-or-later
@@ -16,8 +16,12 @@
     var banned_words = ["monkas", "pepes", "pepehands", "omegalul", "monkagiga",
         "peepos", "pogu", "lsrs", "feelsbadman", "poggers", "pogchamp",
         "sourpls", "feelsgoodman", "pepega", "hyperclap", "peped", "pepepls",
-        "gachibass", "libido", "lulwat"
+        "gachibass", "libido", "lulwut", "peepowink", "poggop", "bboomer",
+        "peepod", "monkahmm", "pepebass", "monkaw", "omegalaughing", "hyperrob",
+        "ayaya"
     ];
+
+    var banned_msg = ["pog", "clap"]
 
     var filterMessages = function(mutationsList, observer) {
         for (const mutation of mutationsList) {
@@ -30,7 +34,8 @@
                 var msg = node ? node.innerText : null;
                 if (!node ||
                     (msg.toUpperCase() == msg && msg.length > 6) ||
-                    msg.match(/[A-Z0-9a-z]/) == null) {
+                    msg.match(/[A-Z0-9a-z]/) == null ||
+                    banned_msg.includes(msg.toLowerCase())) {
                     console.log("filtered " + msg);
                     message.style.display = "none";
                     break;
@@ -65,5 +70,3 @@
     var titleObserver = new MutationObserver(createObserver);
     titleObserver.observe(titleElement, moTitleConfig);
 })();
-
-
