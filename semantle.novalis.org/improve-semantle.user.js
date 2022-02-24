@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         Improve Semantle
-// @version      0.0.1
+// @version      0.0.2
 // @description  Make results copyable and hide rules by default
 // @author       Adam Fontenot (https://github.com/afontenot)
 // @match        https://semantle.novalis.org/
@@ -47,7 +47,7 @@ function share() {
       output += cellContent.padEnd(maxCellLength[colIndex] + 2);
       colIndex++;
     }
-    output += "\n";
+    output = output.trimEnd() + "\n";
   }
   updateClipboard(output);
 }
@@ -82,16 +82,21 @@ style.textContent = `body {
 td.close > span {
   text-align: left !important;
 }
-button.amfscript {
+button.amfscript, #guess-btn, #give-up-btn {
   background-color: rgb(106, 170, 100);
   color: white;
   font-size: 20px;
   font-weight: 700;
+  line-height: auto;
+  height: auto !important;
   border: 0;
   border-radius: 4px;
   padding: 5px 25px;
-  margin-bottom: 20px;
   cursor: pointer;
+  text-transform: uppercase;
+}
+button.amfscript {
+  margin-bottom: 25px;
 }
 button.amfscript:hover {
   background-color: #7abb74;
@@ -104,6 +109,16 @@ button.amfscript:hover {
   line-height: 0px;
   margin: 0;
   opacity: 0;
+}
+#guess {
+  height: auto !important;
+  line-height: auto !important;
+  margin-right: 25px;
+  padding: 3px;
+  font-size: 20px;
+}
+#error {
+  float: right;
 }
 `;
 document.body.appendChild(style);
