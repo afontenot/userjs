@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         Improve Semantle
-// @version      0.0.2
+// @version      0.0.3
 // @description  Make results copyable and hide rules by default
 // @author       Adam Fontenot (https://github.com/afontenot)
 // @match        https://semantle.novalis.org/
@@ -91,7 +91,7 @@ button.amfscript, #guess-btn, #give-up-btn {
   height: auto !important;
   border: 0;
   border-radius: 4px;
-  padding: 5px 25px;
+  padding: 5px 25px !important;
   cursor: pointer;
   text-transform: uppercase;
 }
@@ -114,7 +114,7 @@ button.amfscript:hover {
   height: auto !important;
   line-height: auto !important;
   margin-right: 25px;
-  padding: 3px;
+  padding: 3px !important;
   font-size: 20px;
 }
 #error {
