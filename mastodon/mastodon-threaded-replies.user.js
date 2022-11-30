@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name Mastodon - threaded replies
 // @match https://mastodon.social/*
-// @version 1.0
+// @version 1.1
 // ==/UserScript==
 
 // NOTE: change the URL and the match above to your own instance.
@@ -10,6 +10,7 @@ const instanceURL = "https://mastodon.social";
 const checkLocationTimeout = 200;
 
 let loc = window.location.toString();
+let json = {};
 
 const colorConvert = function(lab) {
   const L = Math.pow(lab[0] + 0.3963377774 * lab[1] + 0.2158037573 * lab[2], 3);
@@ -33,12 +34,18 @@ const getRotatedColor = function(index, maxIndex) {
   return `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
 };
 
-const indentReplies = function(replyData) {
+const indentReplies = function() {
+  const replies = document.getElementsByClassName("status-reply");
+  // race condition avoidance: try again if not all posts are loaded yet
+  if (json.descendants.length !== replies.length) {
+    setTimeout(indentReplies, 100);
+    return;
+  }
   const replyMap = {};
   const replyDepth = {};
   let maxDepth = 0;
   // FIXME: this assumes children never appear before parents in reply list
-  for (const reply of replyData.descendants) {
+  for (const reply of json.descendants) {
     replyMap[reply.id] = reply.in_reply_to_id;
     let depth = 0;
     if (replyDepth.hasOwnProperty(reply.in_reply_to_id)) {
@@ -53,15 +60,14 @@ const indentReplies = function(replyData) {
   for (let i = 0; i <= maxDepth; i++) {
     colorMap[i] = getRotatedColor(i, maxDepth);
   }
-  const replies = document.getElementsByClassName("status-reply");
   for (const reply of replies) {
     const replyID = reply.getAttribute("data-id");
     const replyToID = replyMap[replyID];
     if (replyToID) {
       const depth = replyDepth[replyID];
       // set a maximum depth so that indentation doesn't squish too much
-      reply.style.marginLeft = `${15 * Math.min(15, depth)}px`; // hsl(${360 * depth / (maxDepth + 1)}
-      reply.style.borderLeft = `5px solid ${colorMap[depth]}`;
+      reply.parentElement.style.marginLeft = `${15 * Math.min(15, depth)}px`;
+      reply.parentElement.style.borderLeft = `5px solid ${colorMap[depth]}`;
     }
   }
 };
@@ -80,8 +86,8 @@ const locationChanged = async function() {
   }
   // same origin, shouldn't cause CORS issues
   const resp = await fetch(`${instanceURL}/api/v1/statuses/${pathParts[2]}/context`);
-  const json = await resp.json();
-  indentReplies(json);
+  json = await resp.json();
+  indentReplies();
 };
 
 const checkLocation = function() {
@@ -89,7 +95,7 @@ const checkLocation = function() {
     loc = window.location.toString();
     locationChanged();
   }
-  // don't user setInterval to prevent overlapping runs
+  // don't use setInterval to prevent overlapping runs
   setTimeout(checkLocation, checkLocationTimeout);
 };
 
