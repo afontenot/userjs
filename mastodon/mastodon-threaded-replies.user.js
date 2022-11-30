@@ -1,14 +1,31 @@
 // ==UserScript==
 // @name Mastodon - threaded replies
 // @match https://mastodon.social/*
-// @version 1.2
+// @version 1.3
 // ==/UserScript==
 
-// NOTE: change the URL and the match above to your own instance.
+/* jshint -W097 */
+'use strict';
+
+// NOTE: change the URL below and the match above to your own instance.
 const instanceURL = "https://mastodon.social";
+const maxIndent = 15;
 
 let loc = window.location.toString();
 let json = {};
+let replyMap = {};
+
+const clonableButton = document.createElement("div");
+clonableButton.style.position = "absolute";
+clonableButton.style.cursor = "pointer";
+clonableButton.style.fontSize = "12px";
+clonableButton.style.right = 0;
+clonableButton.style.bottom = 0;
+clonableButton.style.width = "100%";
+clonableButton.style.textAlign = "center";
+clonableButton.style.padding = "6px 0";
+clonableButton.style.lineHeight = "0px";
+clonableButton.style.fontSize = "0px";
 
 const colorConvert = function(lab) {
   const L = Math.pow(lab[0] + 0.3963377774 * lab[1] + 0.2158037573 * lab[2], 3);
@@ -32,6 +49,60 @@ const getRotatedColor = function(index, maxIndex) {
   return `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
 };
 
+const recursiveSetVisibility = function(id, displayProp) {
+  if (!replyMap.hasOwnProperty(id)) {
+    return;
+  }
+  for (const replyId of replyMap[id]) {
+    const replyElement = document.querySelector(`div[data-id="${replyId}"]`);
+    if (replyElement.classList.contains("tree-hidden")) {
+      continue;
+    }
+    replyElement.parentElement.style.display = displayProp;
+    recursiveSetVisibility(replyId, displayProp);
+  }
+};
+
+const buttonHover = function(ev) {
+  ev.target.style.backgroundColor = "rgb(128,128,128,0.15)";
+  ev.target.style.fontSize = "12px";
+};
+
+const buttonExit = function(ev) {
+  if (!ev.target.classList.contains("tree-hidden")) {
+    ev.target.style.backgroundColor = "";
+    ev.target.style.fontSize = "0px";
+  }
+};
+
+const buttonClick = function(ev) {
+  ev.stopPropagation();
+  ev.target.classList.toggle("tree-hidden");
+  const status = ev.target.previousElementSibling;
+  status.classList.toggle("tree-hidden");
+  const hide = status.classList.contains("tree-hidden");
+  const id = status.getAttribute("data-id");
+  const displayProp = hide ? "none" : "";
+  ev.target.textContent = hide ? "▼" : "▲";
+  recursiveSetVisibility(id, displayProp);
+  for (const statusElement of Array.from(status.children).slice(1)) {
+    statusElement.style.display = displayProp;
+  }
+};
+
+const addToggleButton = function(reply) {
+  // FIXME: is there a better way to check if button has already been added?
+  if (reply.nextElementSibling) {
+    return;
+  }
+  const button = clonableButton.cloneNode();
+  button.addEventListener("pointerenter", buttonHover);
+  button.addEventListener("pointerout", buttonExit);
+  button.addEventListener("click", buttonClick);
+  button.textContent = "▲";
+  reply.parentElement.appendChild(button);
+};
+
 const indentReplies = function() {
   const replies = document.getElementsByClassName("status-reply");
   // race condition avoidance: try again if not all posts are loaded yet
@@ -39,12 +110,16 @@ const indentReplies = function() {
     setTimeout(indentReplies, 100);
     return;
   }
-  const replyMap = {};
+  replyMap = {};
   const replyDepth = {};
   let maxDepth = 0;
   // FIXME: this assumes children never appear before parents in reply list
   for (const reply of json.descendants) {
-    replyMap[reply.id] = reply.in_reply_to_id;
+    if (!replyMap.hasOwnProperty(reply.in_reply_to_id)) {
+      replyMap[reply.in_reply_to_id] = [reply.id];
+    } else {
+      replyMap[reply.in_reply_to_id].push(reply.id);
+    }
     let depth = 0;
     if (replyDepth.hasOwnProperty(reply.in_reply_to_id)) {
       depth += replyDepth[reply.in_reply_to_id] + 1;
@@ -60,12 +135,12 @@ const indentReplies = function() {
   }
   for (const reply of replies) {
     const replyID = reply.getAttribute("data-id");
-    const replyToID = replyMap[replyID];
-    if (replyToID) {
-      const depth = replyDepth[replyID];
+    const depth = replyDepth[replyID];
+    if (depth >= 0) {
       // set a maximum depth so that indentation doesn't squish too much
-      reply.parentElement.style.marginLeft = `${15 * Math.min(15, depth)}px`;
+      reply.parentElement.style.marginLeft = `${maxIndent * Math.min(15, depth)}px`;
       reply.parentElement.style.borderLeft = `5px solid ${colorMap[depth]}`;
+      addToggleButton(reply);
     }
   }
 };
