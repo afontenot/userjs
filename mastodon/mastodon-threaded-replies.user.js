@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name Mastodon - threaded replies
 // @match https://mastodon.social/*
-// @version 1.3
+// @version 1.4
 // ==/UserScript==
 
 /* jshint -W097 */
@@ -106,7 +106,8 @@ const addToggleButton = function(reply) {
 const indentReplies = function() {
   const replies = document.getElementsByClassName("status-reply");
   // race condition avoidance: try again if not all posts are loaded yet
-  if (json.descendants.length !== replies.length) {
+  // FIXME: could this be flaky if we run while replies are still being added?
+  if (!replies.length) {
     setTimeout(indentReplies, 100);
     return;
   }
