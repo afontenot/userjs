@@ -1,13 +1,11 @@
 // ==UserScript==
 // @name Mastodon - threaded replies
 // @match https://mastodon.social/*
-// @version 1.1
+// @version 1.2
 // ==/UserScript==
 
 // NOTE: change the URL and the match above to your own instance.
 const instanceURL = "https://mastodon.social";
-
-const checkLocationTimeout = 200;
 
 let loc = window.location.toString();
 let json = {};
@@ -95,9 +93,10 @@ const checkLocation = function() {
     loc = window.location.toString();
     locationChanged();
   }
-  // don't use setInterval to prevent overlapping runs
-  setTimeout(checkLocation, checkLocationTimeout);
 };
 
-setTimeout(checkLocation, checkLocationTimeout);
-setTimeout(locationChanged, 3000);
+const mutConfig = {attributes: false, childList: true, subtree: false};
+const title = document.head.getElementsByTagName("title")[0];
+const mutObs = new MutationObserver(checkLocation);
+mutObs.observe(title, mutConfig);
+locationChanged();
