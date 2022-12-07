@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name Mastodon - threaded replies
 // @match https://mastodon.social/*
-// @version 1.4
+// @version 1.5
 // ==/UserScript==
 
 /* jshint -W097 */
@@ -55,11 +55,10 @@ const recursiveSetVisibility = function(id, displayProp) {
   }
   for (const replyId of replyMap[id]) {
     const replyElement = document.querySelector(`div[data-id="${replyId}"]`);
-    if (replyElement.classList.contains("tree-hidden")) {
-      continue;
-    }
     replyElement.parentElement.style.display = displayProp;
-    recursiveSetVisibility(replyId, displayProp);
+    if (!replyElement.classList.contains("tree-hidden")) {
+      recursiveSetVisibility(replyId, displayProp);
+    }
   }
 };
 
