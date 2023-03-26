@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name Mastodon - threaded replies
 // @match https://mastodon.social/*
-// @version 1.6
+// @version 1.7
 // ==/UserScript==
 
 // NOTE: change the match above to your own instance.
@@ -122,59 +122,71 @@ const indentReplies = function(json) {
   const topLevelPostId = json.descendants[0].in_reply_to_id;
   const topLevelAccountId = json.descendants[0].in_reply_to_account_id;
   for (const reply of json.descendants) {
-    if (!replyMap.hasOwnProperty(reply.in_reply_to_id)) {
-      replyMap[reply.in_reply_to_id] = [reply.id];
+    // build map of replies to their depth
+    const myParentId = reply.in_reply_to_id;
+    if (!replyMap.hasOwnProperty(myParentId)) {
+      replyMap[myParentId] = [reply.id];
     } else {
-      replyMap[reply.in_reply_to_id].push(reply.id);
+      replyMap[myParentId].push(reply.id);
     }
     let depth = 0;
-    if (replyDepth.hasOwnProperty(reply.in_reply_to_id)) {
-      depth += replyDepth[reply.in_reply_to_id] + 1;
+    if (replyDepth.hasOwnProperty(myParentId)) {
+      depth += replyDepth[myParentId] + 1;
     }
     replyDepth[reply.id] = depth;
     if (depth > maxDepth) {
       maxDepth = depth;
     }
 
-    // move self-replies
-    const myParentId = reply.in_reply_to_id;
-    const myPostDate = new Date(reply.created_at);
-    const myParentDescendants = new Set([myParentId]);
-    if (myParentId === topLevelPostId && reply.account.id === topLevelAccountId) {
+    // un-hoist self-replies from top of parent to true thread location
+    // test for whether reply is a self reply
+    const myParentAccountId = reply.in_reply_to_account_id;
+    if (myParentAccountId === topLevelAccountId && reply.account.id === topLevelAccountId) {
+      const myParentDescendants = new Set([myParentId]);
+      const myDescendants = new Set([reply.id]);
+      console.log(reply);
       // store the last scanned reply *before* where our reply should go
-      let lastReplyId = myParentId;
+      let lastReplyId = null;
 
+      // our parent might have moved, default to moving to our parent
+      if (myParentId !== topLevelPostId) {
+        lastReplyId = myParentId;
+      }
+
+      // iterate through all replies to find places we might want to move our reply
       for (const otherReply of json.descendants) {
-        // if otherReply descends from our parent, track it
+        // only consider descendants of our parent
         const otherReplyParentId = otherReply.in_reply_to_id;
         if (myParentDescendants.has(otherReplyParentId)) {
           myParentDescendants.add(otherReply.id);
+        } else {
+          continue;
         }
 
-        // Don't consider self-replies, they will get moved after we do.
-        if (reply.account.id === otherReply.account.id) {
-          if (reply.account.id === otherReply.in_reply_to_account_id) {
-            continue;
-          }
+        // don't consider ourselves
+        if (reply.id === otherReply.id) {
+          continue;
         }
 
-        // get out if a reply is to us
-        if (reply.id === otherReplyParentId) {
-          break;
+        // don't consider our descendants
+        if (myDescendants.has(otherReplyParentId)) {
+          myDescendants.add(otherReply.id);
+          continue;
         }
 
         // get out if a sibling has a later date than us
+        const myPostDate = new Date(reply.created_at);
         const otherPostDate = new Date(otherReply.created_at);
         if (myParentId === otherReplyParentId && myPostDate < otherPostDate) {
           break;
         }
 
-        // set lastReplyId, which tracks targets to move our reply after,
-        // only when the element descends from the same parent as we do.
-        if (myParentDescendants.has(otherReply.id)) {
-          lastReplyId = otherReply.id;
-        }
+        // set last seen reply to put our reply after
+        // this is expected to be the last sibling before our reply or its last descendant
+        lastReplyId = otherReply.id;
       }
+
+      // move our reply after lastReplyId
       if (lastReplyId) {
         const myElement = document.querySelector(`div.status-reply[data-id="${reply.id}"]`).parentElement.parentElement;
         const otherElement = document.querySelector(`div.status-reply[data-id="${lastReplyId}"]`).parentElement.parentElement;
@@ -183,6 +195,7 @@ const indentReplies = function(json) {
     }
   }
 
+  // build a rainbow map of colors using the post depth as an index
   const colorMap = {};
   for (let i = 0; i <= maxDepth; i++) {
     colorMap[i] = getRotatedColor(i, maxDepth);
@@ -213,6 +226,7 @@ const locationChanged = async function() {
   if (!Number(pathParts[2])) {
     return;
   }
+
   // same origin, shouldn't cause CORS issues
   const resp = await fetch(`${instanceURL}/api/v1/statuses/${pathParts[2]}/context`);
   const json = await resp.json();
