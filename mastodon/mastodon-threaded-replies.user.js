@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name Mastodon - threaded replies
 // @match https://mastodon.social/*
-// @version 1.7
+// @version 2.0
 // ==/UserScript==
 
 // NOTE: change the match above to your own instance.
@@ -211,6 +211,21 @@ const indentReplies = function(json) {
       replyElement.parentElement.style.borderLeft = `5px solid ${colorMap[depth]}`;
       addToggleButton(replyElement);
     }
+  }
+
+  // remove Mastodon's new "status line"
+  for (const el of document.getElementsByClassName("status__line")) {
+    el.style.display = "none";
+  }
+
+  // remove new post content indentation
+  for (const el of document.getElementsByClassName("status__content")) {
+    el.style.marginInlineStart = 0;
+    el.style.width = "auto";
+  }
+  for (const el of document.getElementsByClassName("status__action-bar")) {
+    el.style.marginInlineStart = 0;
+    el.style.width = "auto";
   }
 };
 
