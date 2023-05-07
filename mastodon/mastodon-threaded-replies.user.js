@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name Mastodon - threaded replies
 // @match https://mastodon.social/*
-// @version 2.1
+// @version 2.1.1
 // ==/UserScript==
 
 // NOTE: change the match above to your own instance.
@@ -87,7 +87,7 @@ const buttonClick = function(ev) {
   ev.target.textContent = hide ? "▼" : "▲";
   recursiveSetVisibility(id, displayProp);
   for (const statusElement of Array.from(status.children)) {
-    if (!statusElement.classList.contains("status__info")) {
+    if (!statusElement.classList.contains("status__info") && !statusElement.classList.contains("status__line")) {
       statusElement.style.display = displayProp;
     }
   }
