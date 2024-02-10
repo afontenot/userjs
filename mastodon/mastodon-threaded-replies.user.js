@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name Mastodon - threaded replies
 // @match https://mastodon.social/*
-// @version 2.1.2
+// @version 2.1.3
 // ==/UserScript==
 
 // NOTE: change the match above to your own instance.
@@ -9,7 +9,7 @@
 /* jshint -W097 */
 'use strict';
 
-
+const siteName = document.head.querySelector("meta[property='og:site_name']");
 const instanceURL = (new URL(window.location)).origin;
 const maxIndent = 15;
 let fails = 0;
@@ -113,10 +113,11 @@ const indentReplies = function(json) {
   // race condition avoidance: try again if not all posts are loaded yet
   if (replyElements.length < json.ancestors.length + json.descendants.length - 1) {
     fails++;
-    if (fails < 50) {
+    if (fails < 10) {
       setTimeout(indentReplies, 100, json);
+      return;
     }
-    return;
+    console.log("retried too many times, giving up...");
   }
 
   // calculate reply depth
@@ -266,5 +267,9 @@ const checkLocation = function() {
 const mutConfig = {attributes: false, childList: true, subtree: false};
 const title = document.head.getElementsByTagName("title")[0];
 const mutObs = new MutationObserver(checkLocation);
-mutObs.observe(title, mutConfig);
-locationChanged();
+
+if (siteName && siteName.getAttribute("content").startsWith("Mastodon")) {
+  mutObs.observe(title, mutConfig);
+  locationChanged();
+}
+
