@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name Mastodon - threaded replies
 // @match https://mastodon.social/*
-// @version 2.1.1
+// @version 2.1.2
 // ==/UserScript==
 
 // NOTE: change the match above to your own instance.
@@ -12,6 +12,7 @@
 
 const instanceURL = (new URL(window.location)).origin;
 const maxIndent = 15;
+let fails = 0;
 
 let loc = window.location.toString();
 
@@ -108,10 +109,13 @@ const addToggleButton = function(reply) {
 
 const indentReplies = function(json) {
   const replyElements = document.getElementsByClassName("status-reply");
+
   // race condition avoidance: try again if not all posts are loaded yet
-  // FIXME: could this be flaky if we run while replies are still being added?
-  if (!replyElements.length) {
-    setTimeout(indentReplies, 100, json);
+  if (replyElements.length < json.ancestors.length + json.descendants.length - 1) {
+    fails++;
+    if (fails < 50) {
+      setTimeout(indentReplies, 100, json);
+    }
     return;
   }
 
@@ -146,7 +150,6 @@ const indentReplies = function(json) {
     if (myParentAccountId === topLevelAccountId && reply.account.id === topLevelAccountId) {
       const myParentDescendants = new Set([myParentId]);
       const myDescendants = new Set([reply.id]);
-      console.log(reply);
       // store the last scanned reply *before* where our reply should go
       let lastReplyId = null;
 
@@ -221,13 +224,11 @@ const indentReplies = function(json) {
   }
 
   // remove new post content indentation
-  for (const el of document.getElementsByClassName("status__content")) {
-    el.style.marginInlineStart = 0;
-    el.style.width = "auto";
-  }
-  for (const el of document.getElementsByClassName("status__action-bar")) {
-    el.style.marginInlineStart = 0;
-    el.style.width = "auto";
+  for (const status of document.getElementsByClassName("status")) {
+    for (const child of status.children) {
+      child.style.marginInlineStart = 0;
+      child.style.width = "auto";
+    }
   }
 };
 
@@ -247,7 +248,12 @@ const locationChanged = async function() {
   // same origin, shouldn't cause CORS issues
   const resp = await fetch(`${instanceURL}/api/v1/statuses/${pathParts[2]}/context`);
   const json = await resp.json();
-  indentReplies(json);
+
+  if (json.descendants.length > 0) {
+    indentReplies(json);
+  } else {
+    console.log("Empty JSON descendants array in response for", pathParts[2]);
+  }
 };
 
 const checkLocation = function() {
