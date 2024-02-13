@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name Mastodon - threaded replies
 // @match https://mastodon.social/*
-// @version 2.1.3
+// @version 2.1.4
 // ==/UserScript==
 
 // NOTE: change the match above to your own instance.
@@ -113,7 +113,12 @@ const indentReplies = function(json) {
   // race condition avoidance: try again if not all posts are loaded yet
   if (replyElements.length < json.ancestors.length + json.descendants.length - 1) {
     fails++;
-    if (fails < 10) {
+    if (fails < 100) {
+      // limit to one more attempt if there's at least one status loaded
+      const anyReplyWithId = document.querySelector(`div.status-reply[data-id]`);
+      if (anyReplyWithId) {
+        fails = 100;
+      }
       setTimeout(indentReplies, 100, json);
       return;
     }
@@ -272,4 +277,3 @@ if (siteName && siteName.getAttribute("content").startsWith("Mastodon")) {
   mutObs.observe(title, mutConfig);
   locationChanged();
 }
-
