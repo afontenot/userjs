@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name Mastodon - threaded replies
 // @match https://mastodon.social/*
-// @version 2.1.4
+// @version 2.1.5
 // ==/UserScript==
 
 // NOTE: change the match above to your own instance.
@@ -10,6 +10,7 @@
 'use strict';
 
 const instanceURL = (new URL(window.location)).origin;
+const accessToken = JSON.parse(document.getElementById("initial-state").textContent).meta.access_token;
 const maxIndent = 15;
 let fails = 0;
 
@@ -250,8 +251,14 @@ const locationChanged = async function() {
     return;
   }
 
+  // use authorization, if logged in, to get posts only visible to logged in user
+  const headers = {};
+  if (accessToken) {
+    headers.Authorization = `Bearer ${accessToken}`;
+  }
+
   // same origin, shouldn't cause CORS issues
-  const resp = await fetch(`${instanceURL}/api/v1/statuses/${pathParts[2]}/context`);
+  const resp = await fetch(`${instanceURL}/api/v1/statuses/${pathParts[2]}/context`, {headers: headers});
   const json = await resp.json();
 
   if (json.descendants.length > 0) {
