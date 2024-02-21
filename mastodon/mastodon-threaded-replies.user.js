@@ -9,7 +9,6 @@
 /* jshint -W097 */
 'use strict';
 
-const siteName = document.head.querySelector("meta[property='og:site_name']");
 const instanceURL = (new URL(window.location)).origin;
 const maxIndent = 15;
 let fails = 0;
@@ -273,7 +272,5 @@ const mutConfig = {attributes: false, childList: true, subtree: false};
 const title = document.head.getElementsByTagName("title")[0];
 const mutObs = new MutationObserver(checkLocation);
 
-if (siteName && siteName.getAttribute("content").startsWith("Mastodon")) {
-  mutObs.observe(title, mutConfig);
-  locationChanged();
-}
+mutObs.observe(title, mutConfig);
+locationChanged();
