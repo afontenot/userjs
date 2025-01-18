@@ -1,7 +1,8 @@
 // ==UserScript==
 // @name Mastodon - threaded replies
 // @match https://mastodon.social/*
-// @version 2.1.6
+// @match https://fosstodon.org/*
+// @version 2.1.7
 // ==/UserScript==
 
 // NOTE: change the match above to your own instance.
@@ -115,8 +116,7 @@ const indentReplies = function(json) {
     fails++;
     if (fails < 100) {
       // limit to one more attempt if there's at least one descendant loaded
-      const loadedReplies = document.querySelectorAll("div.status-reply[data-id]").length;
-      if (loadedReplies > json.ancestors.length - 1) {
+      if (replyElements.length > json.ancestors.length) {
         fails = 100;
       }
       setTimeout(indentReplies, 100, json);
