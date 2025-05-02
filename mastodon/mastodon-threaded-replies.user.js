@@ -2,7 +2,7 @@
 // @name Mastodon - threaded replies
 // @match https://mastodon.social/*
 // @match https://fosstodon.org/*
-// @version 2.1.7
+// @version 2.2.0
 // ==/UserScript==
 
 // NOTE: change the match above to your own instance.
@@ -17,7 +17,7 @@ let fails = 0;
 
 let loc = window.location.toString();
 
-let replyMap = {};
+let replyMap = new Map();
 
 const clonableButton = document.createElement("div");
 clonableButton.style.position = "absolute";
@@ -126,100 +126,71 @@ const indentReplies = function(json) {
   }
 
   // calculate reply depth
-  replyMap = {};
-  const replyDepth = {};
+  replyMap.clear();
+  const replyDepth = new Map();
+  const replyDate = new Map();
   let maxDepth = 0;
 
   // iterate through replies and build reply map and un-hoist self-replies
   const topLevelPostId = json.descendants[0].in_reply_to_id;
-  const topLevelAccountId = json.descendants[0].in_reply_to_account_id;
   for (const reply of json.descendants) {
+    replyDate.set(reply.id, new Date(reply.created_at));
     // build map of replies to their depth
     const myParentId = reply.in_reply_to_id;
-    if (!replyMap.hasOwnProperty(myParentId)) {
-      replyMap[myParentId] = [reply.id];
+    if (!replyMap.has(myParentId)) {
+      replyMap.set(myParentId, [reply.id]);
     } else {
-      replyMap[myParentId].push(reply.id);
+      replyMap.get(myParentId).push(reply.id);
     }
     let depth = 0;
-    if (replyDepth.hasOwnProperty(myParentId)) {
-      depth += replyDepth[myParentId] + 1;
+    if (replyDepth.has(myParentId)) {
+      depth += replyDepth.get(myParentId) + 1;
     }
-    replyDepth[reply.id] = depth;
+    replyDepth.set(reply.id, depth);
     if (depth > maxDepth) {
       maxDepth = depth;
     }
-
-    // un-hoist self-replies from top of parent to true thread location
-    // test for whether reply is a self reply
-    const myParentAccountId = reply.in_reply_to_account_id;
-    if (myParentAccountId === topLevelAccountId && reply.account.id === topLevelAccountId) {
-      const myParentDescendants = new Set([myParentId]);
-      const myDescendants = new Set([reply.id]);
-      // store the last scanned reply *before* where our reply should go
-      let lastReplyId = null;
-
-      // our parent might have moved, default to moving to our parent
-      if (myParentId !== topLevelPostId) {
-        lastReplyId = myParentId;
-      }
-
-      // iterate through all replies to find places we might want to move our reply
-      for (const otherReply of json.descendants) {
-        // only consider descendants of our parent
-        const otherReplyParentId = otherReply.in_reply_to_id;
-        if (myParentDescendants.has(otherReplyParentId)) {
-          myParentDescendants.add(otherReply.id);
-        } else {
-          continue;
-        }
-
-        // don't consider ourselves
-        if (reply.id === otherReply.id) {
-          continue;
-        }
-
-        // don't consider our descendants
-        if (myDescendants.has(otherReplyParentId)) {
-          myDescendants.add(otherReply.id);
-          continue;
-        }
-
-        // get out if a sibling has a later date than us
-        const myPostDate = new Date(reply.created_at);
-        const otherPostDate = new Date(otherReply.created_at);
-        if (myParentId === otherReplyParentId && myPostDate < otherPostDate) {
-          break;
-        }
-
-        // set last seen reply to put our reply after
-        // this is expected to be the last sibling before our reply or its last descendant
-        lastReplyId = otherReply.id;
-      }
-
-      // move our reply after lastReplyId
-      if (lastReplyId) {
-        const myElement = document.querySelector(`div.status-reply[data-id="${reply.id}"]`).parentElement.parentElement;
-        const otherElement = document.querySelector(`div.status-reply[data-id="${lastReplyId}"]`).parentElement.parentElement;
-        otherElement.insertAdjacentElement("afterend", myElement);
-      }
-    }
   }
 
+  // re-arrange all posts recursively
+
+  // FIXME: is this a 100% reliable way to get the activated post?
+  let lastPostElement = document.querySelector("div.detailed-status__wrapper").parentElement;
+
+  const rearrangeReplies = function (postIds) {
+    // sort all sibling posts by date
+    postIds.sort((a, b) => { return replyDate.get(a) - replyDate.get(b); });
+    for (const postId of postIds) {
+      // Move the post, sorted by (tree, date) to current position
+      const myElement = document.querySelector(`div.status-reply[data-id="${postId}"]`).parentElement.parentElement;
+      if (lastPostElement.nextElementSibling !== myElement) {
+        lastPostElement.insertAdjacentElement("afterend", myElement);
+      }
+      lastPostElement = myElement;
+
+      // handle children of current post next
+      if (replyMap.has(postId)) {
+        rearrangeReplies(replyMap.get(postId));
+      }
+    }
+  };
+
+  rearrangeReplies(replyMap.get(topLevelPostId));
+
   // build a rainbow map of colors using the post depth as an index
-  const colorMap = {};
+  const colorMap = new Map();
   for (let i = 0; i <= maxDepth; i++) {
-    colorMap[i] = getRotatedColor(i, maxDepth);
+    colorMap.set(i, getRotatedColor(i, maxDepth));
   }
 
   // set color and indentation
   for (const replyElement of replyElements) {
     const replyID = replyElement.getAttribute("data-id");
-    const depth = replyDepth[replyID];
+    const depth = replyDepth.get(replyID);
     if (depth >= 0) {
       // set a maximum depth so that indentation doesn't squish too much
       replyElement.parentElement.style.marginLeft = `${maxIndent * Math.min(15, depth)}px`;
-      replyElement.parentElement.style.borderLeft = `5px solid ${colorMap[depth]}`;
+      replyElement.parentElement.style.borderLeft = `5px solid ${colorMap.get(depth)}`;
       addToggleButton(replyElement);
     }
   }
