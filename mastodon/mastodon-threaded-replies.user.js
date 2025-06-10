@@ -2,7 +2,7 @@
 // @name Mastodon - threaded replies
 // @match https://mastodon.social/*
 // @match https://fosstodon.org/*
-// @version 2.2.0
+// @version 2.2.1
 // ==/UserScript==
 
 // NOTE: change the match above to your own instance.
@@ -54,10 +54,10 @@ const getRotatedColor = function(index, maxIndex) {
 };
 
 const recursiveSetVisibility = function(id, displayProp) {
-  if (!replyMap.hasOwnProperty(id)) {
+  if (!replyMap.has(id)) {
     return;
   }
-  for (const replyId of replyMap[id]) {
+  for (const replyId of replyMap.get(id)) {
     const replyElement = document.querySelector(`div[data-id="${replyId}"]`);
     replyElement.parentElement.style.display = displayProp;
     if (!replyElement.classList.contains("tree-hidden")) {
